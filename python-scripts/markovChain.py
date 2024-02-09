@@ -1,7 +1,4 @@
 import pydtmc
-import matplotlib.pyplot as plt
-
-plt.ion
 
 NUMBER_OF_NODES = 1024
 R = 4
@@ -34,4 +31,4 @@ print(mc.expected_rewards(10000,[0,1,1/3]))
 print(mc.mean_recurrence_times())
 res =  mc.simulate(10000,initial_state="unfrozen", seed=32)
 
-pydtmc.plot_graph(mc, dpi=300)
+pydtmc.plot_graph(mc, dpi=600,force_standard=True)
