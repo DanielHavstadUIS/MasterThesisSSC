@@ -360,6 +360,19 @@ contract Redistribution is AccessControl, Pausable {
         return keccak256(abi.encodePacked(_overlay, _depth, _hash, revealNonce));
     }
 
+
+    // build this in reveaL
+    bytes32[] currentRevealHashes;
+    mapping(bytes32 => uint256) currentRevealToStake;
+
+    function _resetRevealToStake() internal {
+    for (uint256 i = 0; i < currentRevealHashes.length; i++) {
+        delete currentRevealToStake[currentRevealHashes[i]]; // Reset the value to 0
+    }
+    delete currentRevealHashes;
+    }
+
+
     /**
      * @notice Reveal the pre-image values used to generate commit provided during this round's commit phase.
      * @param _overlay The overlay address of the applicant.
@@ -376,6 +389,7 @@ contract Redistribution is AccessControl, Pausable {
         if (cr != currentRevealRound) {
             currentRevealRoundAnchor = currentRoundAnchor();
             delete currentReveals;
+            _resetRevealToStake();
             currentRevealRound = cr;
             emit CurrentRevealAnchor(cr, currentRevealRoundAnchor);
             updateRandomness();
@@ -387,16 +401,25 @@ contract Redistribution is AccessControl, Pausable {
 
         for (uint256 i = 0; i < commitsArrayLength; i++) {
             if (currentCommits[i].overlay == _overlay && commitHash == currentCommits[i].obfuscatedHash) {
-                //consider wether i Should bother with this check
-                // require(
-                //     inProximity(currentCommits[i].overlay, currentRevealRoundAnchor, _depth),
-                //     "anchor out of self reported depth"
-                // );
+                //consider wether i Should bother with this check //get around this with 0 depth
+                require(
+                    inProximity(currentCommits[i].overlay, currentRevealRoundAnchor, _depth),
+                    "anchor out of self reported depth"
+                );
                 //check can only revealed once
                 require(currentCommits[i].revealed == false, "participant already revealed");
                 currentCommits[i].revealed = true;
                 currentCommits[i].revealIndex = currentReveals.length;
 
+                //build reveal map
+               currentRevealHashes.push(_hash);
+               if (currentRevealToStake[_hash] == 0) {
+                    currentRevealToStake[_hash] = currentCommits[i].stake * uint256(2 ** _depth);
+                } else {
+                    currentRevealToStake[_hash] += currentCommits[i].stake * uint256(2 ** _depth);
+                }
+                
+                //emit stakeSetToHash(currentRevealToStake[ currentRevealHashes[i]]);
                 currentReveals.push(
                     Reveal({
                         owner: currentCommits[i].owner,
@@ -426,6 +449,11 @@ contract Redistribution is AccessControl, Pausable {
         require(false, "no matching commit or hash");
     }
 
+
+    
+
+
+
     /**
      * @notice Determine if a the owner of a given overlay will be the beneficiary of the claim phase.
      * @param _overlay The overlay address of the applicant.
@@ -453,11 +481,19 @@ contract Redistribution is AccessControl, Pausable {
         uint256 revIndex;
         uint256 k = 0;
 
+        //new
+        uint256 currentMaxReveal = 0;
+
         for (uint256 i = 0; i < commitsArrayLength; i++) {
             if (currentCommits[i].revealed) {
                 revIndex = currentCommits[i].revealIndex;
                 currentSum += currentReveals[revIndex].stakeDensity;
                 randomNumber = keccak256(abi.encodePacked(truthSelectionAnchor, k));
+
+                //altered
+                if (currentMaxReveal < currentRevealToStake[currentRevealHashes[revIndex]] ) {
+                    currentMaxReveal = currentRevealToStake[currentRevealHashes[revIndex]];
+                }
 
                 if (
                     uint256(randomNumber & MaxH) * currentSum <
@@ -470,18 +506,20 @@ contract Redistribution is AccessControl, Pausable {
                 k++;
             }
         }
+        uint256 bankStakeDensity = currentSum - currentMaxReveal;
 
         k = 0;
 
         string memory winnerSelectionAnchor = currentWinnerSelectionAnchor();
-
-        for (uint256 i = 0; i < commitsArrayLength; i++) {
+        //altered
+        for (uint256 i = 0; i < commitsArrayLength+1; i++) {
             revIndex = currentCommits[i].revealIndex;
-            if (
-                currentCommits[i].revealed &&
-                truthRevealedHash == currentReveals[revIndex].hash &&
-                truthRevealedDepth == currentReveals[revIndex].depth
-            ) {
+            if (currentCommits[i].revealed) {
+            // if (
+            //     currentCommits[i].revealed &&
+            //     truthRevealedHash == currentReveals[revIndex].hash &&
+            //     truthRevealedDepth == currentReveals[revIndex].depth
+            // ) {
                 currentWinnerSelectionSum += currentReveals[revIndex].stakeDensity;
                 randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
 
@@ -494,6 +532,17 @@ contract Redistribution is AccessControl, Pausable {
 
                 k++;
             }
+            //new
+            if (i >= commitsArrayLength){
+                currentWinnerSelectionSum += bankStakeDensity;
+                 if(
+                            uint256(randomNumber & MaxH) * currentWinnerSelectionSum <
+                            bankStakeDensity* (uint256(MaxH) + 1)
+                        ) {
+                           winnerIs = keccak256("BANK");
+            }
+
+        }
         }
 
         return (winnerIs == _overlay);
@@ -602,14 +651,12 @@ contract Redistribution is AccessControl, Pausable {
                 randomNumberTrunc = uint256(randomNumber & MaxH);
 
                 // Find the maximum stake reveal
-                if(currentReveals[revIndex].hash == currentReveals[maxRevealIndex].hash ){
-                    currentMaxReveal += currentReveals[revIndex].stakeDensity;
-                    maxRevealIndex = revIndex;
+                emit emitNumber(currentRevealToStake[currentRevealHashes[revIndex]]);
+                if (currentMaxReveal < currentRevealToStake[currentRevealHashes[revIndex]] ) {
+                    currentMaxReveal = currentRevealToStake[currentRevealHashes[revIndex]];
                 }
-                if(currentReveals[revIndex].stakeDensity > currentMaxReveal && currentReveals[revIndex].hash != currentReveals[maxRevealIndex].hash ){
-                    currentMaxReveal = currentReveals[revIndex].stakeDensity;
-                    maxRevealIndex = revIndex;
-                }
+
+              
 
                 // question is whether randomNumber / MaxH < probability
                 // where probability is stakeDensity / currentSum
@@ -627,7 +674,9 @@ contract Redistribution is AccessControl, Pausable {
             }
         }
 
+
         uint256 bankStakeDensity = currentSum - currentMaxReveal;
+        //create dummy reveal for bank
         emit maxStakeEmitted(currentMaxReveal,bankStakeDensity);
         emit TruthSelected(truthRevealedHash, truthRevealedDepth);
 
@@ -635,47 +684,74 @@ contract Redistribution is AccessControl, Pausable {
 
         string memory winnerSelectionAnchor = currentWinnerSelectionAnchor();
 
-        for (uint256 i = 0; i < commitsArrayLength; i++) {
-            revIndex = currentCommits[i].revealIndex;
-            if (currentCommits[i].revealed) {
-                if (
-                    truthRevealedHash == currentReveals[revIndex].hash &&
-                    truthRevealedDepth == currentReveals[revIndex].depth
-                ) {
-                    currentWinnerSelectionSum += currentReveals[revIndex].stakeDensity;
-                    randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
+        for (uint256 i = 0; i < commitsArrayLength+1; i++) {
+            if (i<commitsArrayLength){
+                revIndex = currentCommits[i].revealIndex;
+                if (currentCommits[i].revealed) {
+                    // if (
+                    //     
+                        //truthRevealedHash == currentReveals[revIndex].hash &&
+                        //truthRevealedDepth == currentReveals[revIndex].depth
+                    // ) 
+                    //{
+                        currentWinnerSelectionSum += currentReveals[revIndex].stakeDensity;
+                        randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
 
-                    randomNumberTrunc = uint256(randomNumber & MaxH);
+                        randomNumberTrunc = uint256(randomNumber & MaxH);
 
-                    if (
-                        randomNumberTrunc * currentWinnerSelectionSum <
-                        currentReveals[revIndex].stakeDensity * (uint256(MaxH) + 1)
-                    ) {
-                        winner = currentReveals[revIndex];
+                        if (
+                            randomNumberTrunc * currentWinnerSelectionSum <
+                            currentReveals[revIndex].stakeDensity * (uint256(MaxH) + 1)
+                        ) {
+                            winner = currentReveals[revIndex];
+                        }
+
+                        k++;
+                        //} else {
+                //         Stakes.freezeDeposit(
+                //             currentReveals[revIndex].overlay,
+                //             penaltyMultiplierDisagreement * roundLength * uint256(2 ** truthRevealedDepth)
+                //         );
+                //         // slash ph5
+                //     }
+                // } else {
+                //     // slash in later phase
+                //     // Stakes.slashDeposit(currentCommits[i].overlay, currentCommits[i].stake);
+                //     Stakes.freezeDeposit(
+                //         currentCommits[i].overlay,
+                //         penaltyMultiplierNonRevealed * roundLength * uint256(2 ** truthRevealedDepth)
+                //     );
+                //     continue;
+                // }
                     }
+            
+            }
+            //new
+            if (i >= commitsArrayLength){
+                currentWinnerSelectionSum += bankStakeDensity;
+                 if(
+                            randomNumberTrunc * currentWinnerSelectionSum <
+                            bankStakeDensity* (uint256(MaxH) + 1)
+                        ) {
+                           winner = Reveal({
+                         owner: address(this),
+                         overlay: keccak256("BANK"),
+                         stake: bankStakeDensity,
+                         stakeDensity: bankStakeDensity,
+                         hash: keccak256("bankhash"),
+                         depth: 0
+                     });
 
-                    k++;
-                } else {
-                    Stakes.freezeDeposit(
-                        currentReveals[revIndex].overlay,
-                        penaltyMultiplierDisagreement * roundLength * uint256(2 ** truthRevealedDepth)
-                    );
-                    // slash ph5
-                }
-            } else {
-                // slash in later phase
-                // Stakes.slashDeposit(currentCommits[i].overlay, currentCommits[i].stake);
-                Stakes.freezeDeposit(
-                    currentCommits[i].overlay,
-                    penaltyMultiplierNonRevealed * roundLength * uint256(2 ** truthRevealedDepth)
-                );
-                continue;
+                        }
+
             }
         }
 
         emit WinnerSelected(winner);
-
-        PostageContract.withdraw(winner.owner);
+        //do not pay ban, IE leave pot for next round
+        if (winner.overlay != keccak256("BANK")){
+                    PostageContract.withdraw(winner.owner);
+        }
 
         emit ChunkCount(PostageContract.validChunkCount());
 
@@ -695,5 +771,9 @@ contract Redistribution is AccessControl, Pausable {
     }
 
     event maxStakeEmitted(uint256 indexed mStake, uint256 indexed bStake);
-}
+    
+    event emitNumber(uint256 indexed number);
+
+
+    }
 

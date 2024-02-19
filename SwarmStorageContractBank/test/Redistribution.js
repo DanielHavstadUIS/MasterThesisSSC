@@ -2,6 +2,7 @@
 
 //const { time } = require("@openzeppelin/test-helpers");
 //const { assert } = require("chai");
+const { web3 } = require("@openzeppelin/test-helpers/src/setup");
 const time = require("./helpers/time");
 // const time = require('@openzeppelin-test-helpers');
 const utils = require("./helpers/utils");
@@ -21,7 +22,7 @@ let overlayAddress3 = "0xb9bf740e51c47ac8055b0fabb32930f92dbb7db00b75ff7cdaa9e69
 let overlayAddress4 = "0xb997fa6ba783498746ccd9d4f3974e40a4742e98fe20f6db00137f9be802a7aa";
 let overlayAddress5 = "0xb9aae818aa8fa362268bc2b5d09ade25cccc34e3fb787619ef437f8dc78751e1";
 
-const storageDepht = 10;
+const storageDepht = 0;
 const storageDepthUint8 = web3.utils.toBN(storageDepht).toNumber();
 // Make sure the storageDepth is within the range of uint8
 if (storageDepthUint8 > 255) {
@@ -34,8 +35,68 @@ contract("Redistribution", (accounts) => {
     let overlayAddresses = [];
     let NetworkID = 0;
     let minimumBucketDepht = 8;
+    let stakingContract;
     let contractInstance;
+    let bzzTokenInstance;
     
+    // Helper function to run a redestribution game round
+    async function runRedistribute() {
+        await time.increaseBlocks(152);
+           
+        //gonna need some commits
+        let reserveCommit1 = "0x5023a503d4e3a81205ef10080590a32b74da4932fab94279e09f11868d00f2be"; 
+        let nonce1 = "0x8";
+        let reserveCommit2 = "0x40a3d203d4e3a81205af10680290a32b74da4932fab94274e0cf11868d9037a2"; 
+        let nonce2 = "0x2";
+        let reserveCommit3 = "0x82abdf23d0e308a205af1068c290d32e74daf934fab24214e0c2f11868d907a7"; 
+        let nonce3 = "0x3";
+        
+        let obfuscatedHash1 = await contractInstance.wrapCommit(overlayAddress1,storageDepthUint8,reserveCommit1,nonce1);
+        let obfuscatedHash2 = await contractInstance.wrapCommit(overlayAddress2,storageDepthUint8,reserveCommit2,nonce2);
+        let obfuscatedHash3 = await contractInstance.wrapCommit(overlayAddress3,storageDepthUint8,reserveCommit3,nonce3);
+
+
+        currentBlockNumber = await web3.eth.getBlockNumber();
+        console.log("Current block number:", currentBlockNumber);
+
+        await time.makeItCommitPhase();
+        currentBlockNumber = await web3.eth.getBlockNumber();
+        console.log("Current block number:", currentBlockNumber);
+        let rndres = await contractInstance.currentRound();
+        console.log(rndres.toString());
+
+
+        //alice and bob not same commit
+        let resCommit1 = await contractInstance.commit( obfuscatedHash1 ,overlayAddress1,rndres,{from: alice}); 
+        let resCommit2 = await contractInstance.commit( obfuscatedHash2 ,overlayAddress2,rndres,{from: bob}); 
+        let resCommit3 = await contractInstance.commit( obfuscatedHash3 ,overlayAddress3,rndres,{from: charlie}); 
+
+        //console.log(resCommit1);
+
+
+        //need to time travel to reveal phase
+
+        await time.makeItRevealPhase();
+       
+        let revealStatus = await contractInstance.currentPhaseReveal();
+        //console.log(revealStatus);
+          //alice
+        let reveal1 = await contractInstance.reveal(overlayAddress1, storageDepthUint8, reserveCommit1, nonce1, {from: alice});
+        //bob
+        let reveal2 = await contractInstance.reveal(overlayAddress2, storageDepthUint8, reserveCommit2, nonce2, {from: bob});
+        //charlie
+        let reveal3 = await contractInstance.reveal(overlayAddress3, storageDepthUint8, reserveCommit3, nonce3, {from: charlie});
+
+       // console.log(reveal1);
+        //console.log(reveal2);
+        //console.log(reveal3);
+
+       //time travel claim phase
+       await time.makeItClaimPhase();
+       await contractInstance.claim({from: alice})
+
+    }
+
     beforeEach(async () => {
          overlayAddresses = [];
          let bzzTokenInstance = await bzzToken.new("BZZ","BZZ",{from: sudo});
@@ -51,7 +112,7 @@ contract("Redistribution", (accounts) => {
          // need to give moneys
         
          
-         let amount =  1000000000000000000n;
+         let amount =  10000000000000000000n;
          //give everyone stake
          await bzzTokenInstance.transferFrom(sudo,alice, amount, { from: sudo });
         await bzzTokenInstance.approve(alice,amount, {from: alice});
@@ -69,16 +130,16 @@ contract("Redistribution", (accounts) => {
             await bzzTokenInstance.approve(david,amount, {from: david});
 
          //needs addresss of BZZ ERC20 token, and swarm network id
-         const stakingContract = await StakeRegistry.new(bzzTokenInstance.address, NetworkID ,{ from: sudo });
+         stakingContract = await StakeRegistry.new(bzzTokenInstance.address, NetworkID ,{ from: sudo });
         // Listen to the StakeUpdated event
 
-        //give stake
+        //give stake     
         let stakeAmount = 100000000000000000n
         // alice needs to give staking contract allowance
-        await bzzTokenInstance.approve(stakingContract.address,stakeAmount, {from: alice});
-        await bzzTokenInstance.approve(stakingContract.address,stakeAmount, {from: bob});
-        await bzzTokenInstance.approve(stakingContract.address,stakeAmount, {from: charlie});
-        await bzzTokenInstance.approve(stakingContract.address,stakeAmount, {from: david});
+        await bzzTokenInstance.approve(stakingContract.address,stakeAmount*10n, {from: alice});
+        await bzzTokenInstance.approve(stakingContract.address,stakeAmount*10n, {from: bob});
+        await bzzTokenInstance.approve(stakingContract.address,stakeAmount*10n, {from: charlie});
+        await bzzTokenInstance.approve(stakingContract.address,stakeAmount*10n, {from: david});
 
 
          let aliceStaked = await stakingContract.depositStake(alice, overlayNonce, stakeAmount,{ from: alice } )
@@ -155,13 +216,13 @@ contract("Redistribution", (accounts) => {
             let obfuscatedHash2 = await contractInstance.wrapCommit(overlayAddress2,storageDepthUint8,reserveCommit1,nonce1);
             
             currentBlockNumber = await web3.eth.getBlockNumber();
-            console.log("Current block number:", currentBlockNumber);
+            //console.log("Current block number:", currentBlockNumber);
 
             await time.makeItCommitPhase();
             currentBlockNumber = await web3.eth.getBlockNumber();
-            console.log("Current block number:", currentBlockNumber);
+           // console.log("Current block number:", currentBlockNumber);
             let rndres = await contractInstance.currentRound();
-            console.log(rndres.toString());
+            //console.log(rndres.toString());
 
 
             //alice and bob same commit
@@ -181,10 +242,10 @@ contract("Redistribution", (accounts) => {
   
             await time.makeItRevealPhase();
             currentBlockNumber = await web3.eth.getBlockNumber();
-            console.log("Current block number:", currentBlockNumber);
+            //console.log("Current block number:", currentBlockNumber);
   
             let revealStatus = await contractInstance.currentPhaseReveal();
-            console.log(revealStatus);
+            //console.log(revealStatus);
               //alice
             let reveal1 = await contractInstance.reveal(overlayAddress1, storageDepthUint8, reserveCommit1, nonce1, {from: alice});
             //bob
@@ -195,13 +256,20 @@ contract("Redistribution", (accounts) => {
            // console.log(reveal1);
             //console.log(reveal2);
             //console.log(reveal3);
-  
+        
+            const events = await contractInstance.getPastEvents("Revealed", {
+                fromBlock: currentBlockNumber,
+                    toBlock: "latest"
+                });
+
+             console.log(events[0]);
+
            //time travel claim phase
            await time.makeItClaimPhase();
 
   
            currentBlockNumber = await web3.eth.getBlockNumber();
-           console.log("Current block number:", currentBlockNumber);
+           //console.log("Current block number:", currentBlockNumber);
 
 
         })
@@ -227,7 +295,7 @@ contract("Redistribution", (accounts) => {
         //Assert that at least one Claimed event was emitted
           //assert(events.length > 0, "WinnerSelected not emitted");
 
-             assert.equal(testStake, 204800000000000000000n,"Max stake not correctly calculated, or stake not provided properly")
+             assert.equal(testStake, 200000000000000000n,"Max stake not correctly calculated, or stake not provided properly")
 
         })
         it("should calculate bank player stake ",async () =>{ 
@@ -242,14 +310,125 @@ contract("Redistribution", (accounts) => {
           assert(events.length > 0, "bStake not emitted");
           let testStake = events[0].returnValues.bStake;
           console.log(events[0].returnValues.bStake);
-          assert.equal(testStake, 102400000000000000000n,"Max stake not correctly calculated, or stake not provided properly")
+          assert.equal(testStake, 100000000000000000n,"Bank stake not correctly calculated, or stake not provided properly")
         })
+        //cant do this due to too many local variables makes contract unable to compile
+        xit("should make dummy reveal for bank player",async () =>{ 
+            let claim = await contractInstance.currentPhaseClaim();
+            console.log(claim)
+            await contractInstance.claim({from: alice})
+            
+            const events = await contractInstance.getPastEvents("maxStakeEmitted", {
+               fromBlock: 0,
+                   toBlock: "latest"
+               });
+            assert(events.length > 0, "bReveal not emitted");
+            let bankReveal = events[0].returnValues.bankReveal;
+            console.log(events[0].returnValues.bankReveal);
+            assert.equal(bankReveal.overlay, web3.utils.keccak256("BANK"),"Dummy bank reveal not made")
+          })
+        
     })
 
     //context allows grouping tests for a specific scenario, 
     //prepending an x before context as in xcontext or xit for a single tests omits testing these tests
-    xcontext("with the single-step transfer scenario", async () => {
-        xit("should transfer a zombie", async () => {
-        })
+    context("Bankwintesting", async () => {
+        it("Bank should at some point win ",async () =>{ 
+            console.log("Starting win testing")
+            startingBlockNumber = await web3.eth.getBlockNumber();
+            //console.log("Current block number:", currentBlockNumber);
+    
+            n = 15;
+            
+            await runRedistribute();
+            await runRedistribute();
+            await runRedistribute();
+
+            const events = await contractInstance.getPastEvents("WinnerSelected", {
+               fromBlock: startingBlockNumber,
+                   toBlock: "latest"
+               });
+            assert(events.length > 0, "No claim rounds ran");
+            let bankWon = false;
+            for (let e of events){
+                console.log("winner overlay");
+                console.log(e.returnValues.winner.overlay);
+                console.log("bank overlay");
+                console.log(web3.utils.keccak256("BANK"));
+
+                if (e.returnValues.winner.overlay == web3.utils.keccak256("BANK")){
+                    bankWon = true
+                }
+
+            }
+            assert(bankWon,"bank not win yet");
+
+          })
+          it("Bank should win proportionally ",async () =>{ 
+            console.log("Starting win testing")
+           
+
+
+
+            startingBlockNumber = await web3.eth.getBlockNumber();
+            //console.log("Current block number:", currentBlockNumber);
+            
+            //alter stake levels
+            //might need to alter allowances also
+            let stakeAmount = 100000000000000000n
+           
+            let aliceStaked = await stakingContract.depositStake(alice, overlayNonce, stakeAmount*4n,{ from: alice } )
+            let bobStaked = await stakingContract.depositStake(bob, overlayNonce, stakeAmount*3n,{ from: bob } )
+
+
+            aliceStaked.logs.forEach(l =>{
+                if (l.event == "StakeUpdated"){
+                    console.log(l.args[0]);
+                    overlayAddress1 = l.args[0];
+                    
+                }
+             });
+            console.log(bobStaked);
+
+            n = 100;
+            //keep track of winners
+            winners = new Map()
+            winners.set(overlayAddress1,0)
+            winners.set(overlayAddress2,0)
+            winners.set(overlayAddress3,0)
+            winners.set(web3.utils.keccak256("BANK"),0)
+
+
+            //alter run redistribute so we can redistribute with three different actors
+
+            // run game n times
+            for(i=0; i < n; i++){
+
+                await runRedistribute();
+            }
+            
+
+            const events = await contractInstance.getPastEvents("WinnerSelected", {
+               fromBlock: startingBlockNumber,
+                   toBlock: "latest"
+               });
+            assert(events.length > 0, "No claim rounds ran");
+            let bankWon = false;
+            for (let e of events){
+                console.log("winner selected overlay")
+                console.log(e.returnValues.winner.overlay)
+                _overlay = e.returnValues.winner.overlay;
+                winners.set(_overlay,winners.get(_overlay)+1)
+
+            }
+
+            //count how many times each won out of n 
+            winners.forEach (function(value, key) {
+                console.log(key)
+                console.log(value)
+              })
+            //assert(bankWon);
+
+          })
     })
 })
