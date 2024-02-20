@@ -51,6 +51,9 @@ contract ERC20 is Context, IERC20 {
     constructor (string memory name_, string memory symbol_) {
         _name = name_;
         _symbol = symbol_;
+          // Mint initial supply to the contract deployer
+        _mint(_msgSender(), 10000000000000000000 * 10**18); // Mint 1,000,000 tokens with 18 decimals
+        approve(_msgSender(), balanceOf(_msgSender()));
     }
 
     /**
