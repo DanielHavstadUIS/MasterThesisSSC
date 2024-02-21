@@ -41,7 +41,10 @@ contract("Redistribution", (accounts) => {
     
     // Helper function to run a redestribution game round
     async function runRedistribute() {
-        await time.increaseBlocks(152);
+        currentBlockNumber = await web3.eth.getBlockNumber();
+        console.log("Current block number:", currentBlockNumber);
+        timeToNextRound =152 - ( currentBlockNumber % 152) +1
+        await time.increaseBlocks(timeToNextRound);
            
         //gonna need some commits
         let reserveCommit1 = "0x5023a503d4e3a81205ef10080590a32b74da4932fab94279e09f11868d00f2be"; 
@@ -56,9 +59,7 @@ contract("Redistribution", (accounts) => {
         let obfuscatedHash3 = await contractInstance.wrapCommit(overlayAddress3,storageDepthUint8,reserveCommit3,nonce3);
 
 
-        currentBlockNumber = await web3.eth.getBlockNumber();
-        console.log("Current block number:", currentBlockNumber);
-
+       
         await time.makeItCommitPhase();
         currentBlockNumber = await web3.eth.getBlockNumber();
         console.log("Current block number:", currentBlockNumber);
@@ -390,7 +391,7 @@ contract("Redistribution", (accounts) => {
              });
             console.log(bobStaked);
 
-            n = 100;
+            n = 300;
             //keep track of winners
             winners = new Map()
             winners.set(overlayAddress1,0)
@@ -421,6 +422,16 @@ contract("Redistribution", (accounts) => {
                 winners.set(_overlay,winners.get(_overlay)+1)
 
             }
+
+            const events2 = await contractInstance.getPastEvents("emitNumber", {
+                fromBlock: startingBlockNumber,
+                    toBlock: "latest"
+                });
+
+                for (let e of events2){
+                    console.log(e.returnValues.number)
+    
+                }
 
             //count how many times each won out of n 
             winners.forEach (function(value, key) {
