@@ -454,6 +454,30 @@ contract Redistribution is AccessControl, Pausable {
         require(false, "no matching commit or hash");
     }
 
+    function sqrt(uint x) public pure returns (uint y) {
+            if (x == 0) return 0;
+            else if (x <= 3) return 1;
+
+            uint z = (x + 1) / 2;
+            y = x;
+            while (z < y) {
+                y = z;
+                z = (x / z + z) / 2;
+            }
+        }
+
+    function cbrt(uint x) public pure returns (uint y) {
+            if (x == 0) return 0;
+
+            uint z = (x + 1) / 3;
+            y = x;
+            while (z < y) {
+                y = z;
+                z = (x / (z * z) + 2 * z) / 3;
+            }
+        }
+
+
     /**
      * @notice Determine if a the owner of a given overlay will be the beneficiary of the claim phase.
      * @param _overlay The overlay address of the applicant.
@@ -660,23 +684,12 @@ contract Redistribution is AccessControl, Pausable {
 
                         //do initially with alpha ==1
                     if (
-                        randomNumberTrunc * currentSum * currentSum*alpha <
-                        currentReveals[revIndex].stakeDensity * currentRevealToStake[currentReveals[revIndex].hash] * alpha * (uint256(MaxH) + 1)
+                        randomNumberTrunc * currentSum * sqrt(currentSum) * alpha <
+                        currentReveals[revIndex].stakeDensity * sqrt(currentRevealToStake[currentReveals[revIndex].hash]) * alpha * (uint256(MaxH) + 1)
                     ) {
                         winner = currentReveals[revIndex];
                      } 
-                    //else {
-
-                    // winner =   Reveal({
-                    //      owner: address(this),
-                    //      overlay: keccak256("BANK"),
-                    //      stake: 0,
-                    //      stakeDensity: 0,
-                    //      hash: keccak256("bankhash"),
-                    //      depth: 0
-                    //  });
-                    // }
-
+                   
                     k++;
                 // } else {
                 //     Stakes.freezeDeposit(
@@ -695,6 +708,17 @@ contract Redistribution is AccessControl, Pausable {
                 continue;
             }
         }
+        if (winner.overlay == bytes32(0)){
+            winner = Reveal({
+                         owner: address(this),
+                         overlay: keccak256("BANK"),
+                         stake: 0,
+                         stakeDensity: 0,
+                         hash: keccak256("bankhash"),
+                         depth: 0
+                     });
+        }
+
 
         emit WinnerSelected(winner);
 

@@ -94,7 +94,8 @@ contract("Redistribution", (accounts) => {
 
        //time travel claim phase
        await time.makeItClaimPhase();
-       await contractInstance.claim({from: alice})
+       txRes = await contractInstance.claim({from: alice})
+       console.log("Gas used:", txRes.receipt.gasUsed);
 
     }
 

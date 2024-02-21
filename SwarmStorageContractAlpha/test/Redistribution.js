@@ -41,8 +41,10 @@ contract("Redistribution", (accounts) => {
     
     // Helper function to run a redestribution game round
     async function runRedistribute() {
-        await time.increaseBlocks(152);
-           
+        currentBlockNumber = await web3.eth.getBlockNumber();
+        console.log("Current block number:", currentBlockNumber);
+        timeToNextRound =152 - ( currentBlockNumber % 152) +1
+        await time.increaseBlocks(timeToNextRound);
         //gonna need some commits
         let reserveCommit1 = "0x5023a503d4e3a81205ef10080590a32b74da4932fab94279e09f11868d00f2be"; 
         let nonce1 = "0x8";
@@ -56,12 +58,10 @@ contract("Redistribution", (accounts) => {
         let obfuscatedHash3 = await contractInstance.wrapCommit(overlayAddress3,storageDepthUint8,reserveCommit3,nonce3);
 
 
-        currentBlockNumber = await web3.eth.getBlockNumber();
-        console.log("Current block number:", currentBlockNumber);
+        
 
         await time.makeItCommitPhase();
-        currentBlockNumber = await web3.eth.getBlockNumber();
-        console.log("Current block number:", currentBlockNumber);
+      
         let rndres = await contractInstance.currentRound();
         console.log(rndres.toString());
 
@@ -93,8 +93,8 @@ contract("Redistribution", (accounts) => {
 
        //time travel claim phase
        await time.makeItClaimPhase();
-       await contractInstance.claim({from: alice})
-
+       txRes = await contractInstance.claim({from: alice})
+       console.log("Gas used:", txRes.receipt.gasUsed);
     }
 
     beforeEach(async () => {
