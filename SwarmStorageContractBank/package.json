@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@openzeppelin/test-helpers": "^0.5.16",
+    "axios": "^1.6.7",
+    "chai": "^5.1.0",
+    "csv-parser": "^3.0.0",
+    "csv-writer": "^1.6.0",
+    "sqlite3": "^5.1.7",
+    "truffle": "^5.11.5",
+    "truffle-hdwallet-provider": "^1.0.17"
+  }
+}

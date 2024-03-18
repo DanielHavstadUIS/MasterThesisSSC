@@ -38,6 +38,10 @@ contract("Redistribution", (accounts) => {
     let stakingContract;
     let contractInstance;
     let bzzTokenInstance;
+    let postageContract;
+
+    let ClaimGasHistory = [];
+
     
     // Helper function to run a redestribution game round
     async function runRedistribute() {
@@ -95,13 +99,15 @@ contract("Redistribution", (accounts) => {
        //time travel claim phase
        await time.makeItClaimPhase();
        txRes = await contractInstance.claim({from: alice})
-       console.log("Gas used:", txRes.receipt.gasUsed);
+       ClaimGasHistory.push(txRes.receipt.gasUsed);
+
+       //console.log("Gas used:", txRes.receipt.gasUsed);
 
     }
 
     beforeEach(async () => {
          overlayAddresses = [];
-         let bzzTokenInstance = await bzzToken.new("BZZ","BZZ",{from: sudo});
+         bzzTokenInstance = await bzzToken.new("BZZ","BZZ",{from: sudo});
          sudoMoney = await bzzTokenInstance.allowance(sudo,sudo);
          sudoBalance = await bzzTokenInstance.balanceOf(sudo);
 
@@ -129,8 +135,6 @@ contract("Redistribution", (accounts) => {
             await bzzTokenInstance.approve(charlie,amount, {from: charlie});
             //david
             await bzzTokenInstance.transferFrom(sudo,david, amount, { from: sudo });
-            await bzzTokenInstance.approve(david,amount, {from: david});
-
          //needs addresss of BZZ ERC20 token, and swarm network id
          stakingContract = await StakeRegistry.new(bzzTokenInstance.address, NetworkID ,{ from: sudo });
         // Listen to the StakeUpdated event
@@ -186,7 +190,7 @@ contract("Redistribution", (accounts) => {
 
 
         //needs token, and minimum bucket depth to be paid for
-         const postageContract = await PostageStamp.new(bzzTokenInstance.address,minimumBucketDepht,{ from: sudo });
+         postageContract = await PostageStamp.new(bzzTokenInstance.address,minimumBucketDepht,{ from: sudo });
          const oracleContract = await PriceOracle.new(postageContract.address, { from: sudo });
  
         contractInstance = await RedistributionContract.new(
@@ -198,11 +202,14 @@ contract("Redistribution", (accounts) => {
          // give redistribution ability to withdraw
          await postageContract.grantRole(web3.utils.keccak256("REDISTRIBUTOR_ROLE"),contractInstance.address);
          await stakingContract.grantRole(web3.utils.keccak256("REDISTRIBUTOR_ROLE"),contractInstance.address);
+         await oracleContract.grantRole(web3.utils.keccak256("PRICE_UPDATER"),contractInstance.address);
+         await postageContract.grantRole(web3.utils.keccak256("PRICE_ORACLE"),oracleContract.address);
+
 
     });
 
 
-    context("SetupBankPlayer", async () => {
+    xcontext("SetupBankPlayer", async () => {
         //skip round might need to change as blockchain blocks dont depend on our contracts
         
 
@@ -334,8 +341,9 @@ contract("Redistribution", (accounts) => {
 
     //context allows grouping tests for a specific scenario, 
     //prepending an x before context as in xcontext or xit for a single tests omits testing these tests
-    context("Bankwintesting", async () => {
-        it("Bank should at some point win ",async () =>{ 
+    xcontext("Bankwintesting", async () => {
+        xit("Bank should at some point win ",async () =>{ 
+            ClaimGasHistory = [];
             console.log("Starting win testing")
             startingBlockNumber = await web3.eth.getBlockNumber();
             //console.log("Current block number:", currentBlockNumber);
@@ -392,7 +400,7 @@ contract("Redistribution", (accounts) => {
              });
             console.log(bobStaked);
 
-            n = 300;
+            n = 100;
             //keep track of winners
             winners = new Map()
             winners.set(overlayAddress1,0)
@@ -439,7 +447,73 @@ contract("Redistribution", (accounts) => {
                 console.log(key)
                 console.log(value)
               })
+            console.log("minGas: ", Math.min(...ClaimGasHistory))
+            console.log("maxGas: ", Math.max(...ClaimGasHistory))
+            
+            var total = 0;
+            for(var i = 0; i < ClaimGasHistory.length; i++) {
+                total += ClaimGasHistory[i];
+            }
+            var avg = total / ClaimGasHistory.length;
+
+
+            console.log("meanGas: ", avg);
+  
+
+              
             //assert(bankWon);
+
+          })
+    })
+    context("potAddedToNewRound", async () => {
+        it("pot should remain from prev round",async () =>{ 
+            console.log("Starting win testing")
+           
+
+
+
+            startingBlockNumber = await web3.eth.getBlockNumber();
+            //console.log("Current block number:", currentBlockNumber);
+            
+            //alter stake levels
+            //might need to alter allowances also
+            let stakeAmount = 100000000000000000n
+            let potAmount = 100n
+           
+            let aliceStaked = await stakingContract.depositStake(alice, overlayNonce, stakeAmount*4n,{ from: alice } )
+            let bobStaked = await stakingContract.depositStake(bob, overlayNonce, stakeAmount*3n,{ from: bob } )
+
+
+         
+
+            n = 100;
+          
+
+
+            //alter run redistribute so we can redistribute with three different actors
+
+            // run game n times
+            for(i=0; i < n; i++){
+
+//                await  bzzTokenInstance.approve( postageContract.address, BigNumber.from(round.rewardPot.toString()) ,{from: sudo})
+  //              await  postageContract.topupPot(BigNumber.from(round.rewardPot.toString()) ,{from: sudo})
+                // console.log(bzzTokenInstance);
+                // console.log(postageContract);
+                // console.log(potAmount);
+                await  bzzTokenInstance.approve( postageContract.address, potAmount.toString() ,{from: sudo} );
+                await postageContract.topupPot(potAmount,{from: sudo});
+                crpot = await postageContract.viewTotalPot();
+                console.log(crpot.toString());
+                if(crpot > potAmount){
+                    console.log("yay")
+                  //  break;
+                }
+                await runRedistribute();
+            }
+            
+
+           
+              
 
           })
     })

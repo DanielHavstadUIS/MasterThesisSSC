@@ -324,7 +324,7 @@ contract Redistribution is AccessControl, Pausable {
      * to block.prevrandao in post merge chains.
      */
     function updateRandomness() private {
-        seed = keccak256(abi.encode(seed, block.difficulty));
+        seed = keccak256(abi.encode(seed, block.prevrandao));
     }
 
     function nonceBasedRandomness(bytes32 nonce) private {
@@ -388,7 +388,10 @@ contract Redistribution is AccessControl, Pausable {
 
         require(cr == currentCommitRound, "round received no commits");
         if (cr != currentRevealRound) {
-            currentRevealRoundAnchor = currentRoundAnchor();
+            //currentRevealRoundAnchor = currentRoundAnchor();
+            //edit
+            currentRevealRoundAnchor = currentRoundAnchorValue;
+
             delete currentReveals;
             _resetRevealToStake();
             currentRevealRound = cr;
@@ -609,6 +612,21 @@ contract Redistribution is AccessControl, Pausable {
         }
     }
 
+    //edited by me for testing
+    bytes32 public currentRoundAnchorValue;
+
+    function setCurrentRoundAnchor(bytes32 _value) external {
+        currentRoundAnchorValue = _value;
+    }
+
+    string public currentTruthSelectionAnchorValue;
+
+    function setCurrentTruthSelectionAnchor(string memory _value) external {
+        currentTruthSelectionAnchorValue = _value;
+    }
+
+
+
     /**
      * @notice Conclude the current round by identifying the selected truth teller and beneficiary.
      * @dev
@@ -621,7 +639,9 @@ contract Redistribution is AccessControl, Pausable {
         require(cr == currentRevealRound, "round received no reveals");
         require(cr > currentClaimRound, "round already received successful claim");
 
-        string memory truthSelectionAnchor = currentTruthSelectionAnchor();
+        //string memory truthSelectionAnchor = currentTruthSelectionAnchor();
+        //edit
+        string memory truthSelectionAnchor = currentTruthSelectionAnchorValue;
 
         uint256 currentSum;
         uint256 currentWinnerSelectionSum;

@@ -52,8 +52,8 @@ contract ERC20 is Context, IERC20 {
         _name = name_;
         _symbol = symbol_;
          // Mint initial supply to the contract deployer
-        _mint(_msgSender(), 10000000000000000000 * 10**18); // Mint 1,000,000 tokens with 18 decimals
-        approve(_msgSender(), balanceOf(_msgSender()));
+        _mint(_msgSender(), 10**20 * 10**18); // Mint 1,000,000 tokens with 18 decimals
+        _approve(_msgSender(), _msgSender(), balanceOf(_msgSender()));
     }
 
     /**
