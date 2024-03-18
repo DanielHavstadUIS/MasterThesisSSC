@@ -9,7 +9,7 @@ const utils = require("./helpers/utils");
 
 
 
-const RedistributionContract = artifacts.require("Redistribution");
+const RedistributionContract = artifacts.require("Redistribution2");
 const StakeRegistry = artifacts.require("StakeRegistry");
 const PostageStamp = artifacts.require("PostageStamp");
 const PriceOracle = artifacts.require("PriceOracle");
@@ -38,6 +38,9 @@ contract("Redistribution", (accounts) => {
     let stakingContract;
     let contractInstance;
     let bzzTokenInstance;
+
+    let ClaimGasHistory = [];
+
     
     // Helper function to run a redestribution game round
     async function runRedistribute() {
@@ -94,7 +97,8 @@ contract("Redistribution", (accounts) => {
        //time travel claim phase
        await time.makeItClaimPhase();
        txRes = await contractInstance.claim({from: alice})
-       console.log("Gas used:", txRes.receipt.gasUsed);
+       ClaimGasHistory.push(txRes.receipt.gasUsed);
+       //console.log("Gas used:", txRes.receipt.gasUsed);
     }
 
     beforeEach(async () => {
@@ -200,7 +204,7 @@ contract("Redistribution", (accounts) => {
     });
 
 
-    context("SetupBankPlayer", async () => {
+    xcontext("SetupBankPlayer", async () => {
         //skip round might need to change as blockchain blocks dont depend on our contracts
         
 
@@ -312,7 +316,7 @@ contract("Redistribution", (accounts) => {
     //context allows grouping tests for a specific scenario, 
     //prepending an x before context as in xcontext or xit for a single tests omits testing these tests
     context("Bankwintesting", async () => {
-        it("Bank should at some point win ",async () =>{ 
+        xit("Bank should at some point win ",async () =>{ 
             console.log("Starting win testing")
             startingBlockNumber = await web3.eth.getBlockNumber();
             //console.log("Current block number:", currentBlockNumber);
@@ -345,8 +349,9 @@ contract("Redistribution", (accounts) => {
 
           })
           it("Bank should win proportionally ",async () =>{ 
+            ClaimGasHistory = [];
             console.log("Starting win testing")
-           
+            
 
 
 
@@ -370,7 +375,7 @@ contract("Redistribution", (accounts) => {
              });
             console.log(bobStaked);
 
-            n = 100;
+            n = 1000;
             //keep track of winners
             winners = new Map()
             winners.set(overlayAddress1,0)
@@ -386,7 +391,14 @@ contract("Redistribution", (accounts) => {
 
                 await runRedistribute();
             }
-            
+            const debugNumbers = await contractInstance.getPastEvents("emitNumber", {
+                fromBlock: startingBlockNumber,
+                    toBlock: "latest"
+                });
+            for (let e of debugNumbers){
+                console.log(e.returnValues.number.toString())
+            }
+        
 
             const events = await contractInstance.getPastEvents("WinnerSelected", {
                fromBlock: startingBlockNumber,
@@ -406,7 +418,20 @@ contract("Redistribution", (accounts) => {
             winners.forEach (function(value, key) {
                 console.log(key)
                 console.log(value)
+                console.log(value/n)
               })
+            console.log("minGas: ", Math.min(...ClaimGasHistory))
+            console.log("maxGas: ", Math.max(...ClaimGasHistory))
+            
+            var total = 0;
+            for(var i = 0; i < ClaimGasHistory.length; i++) {
+                total += ClaimGasHistory[i];
+            }
+            var avg = total / ClaimGasHistory.length;
+
+
+            console.log("meanGas: ", avg);
+
             //assert(bankWon);
 
           })

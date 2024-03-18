@@ -326,7 +326,7 @@ contract Redistribution is AccessControl, Pausable {
      * to block.prevrandao in post merge chains.
      */
     function updateRandomness() private {
-        seed = keccak256(abi.encode(seed, block.difficulty));
+        seed = keccak256(abi.encode(seed, block.prevrandao));
     }
 
     function nonceBasedRandomness(bytes32 nonce) private {
@@ -454,23 +454,32 @@ contract Redistribution is AccessControl, Pausable {
         require(false, "no matching commit or hash");
     }
 
+
+    //babylonian square root
     function sqrt(uint x) public pure returns (uint y) {
+            uint8 k = 0;
             if (x == 0) return 0;
             else if (x <= 3) return 1;
 
             uint z = (x + 1) / 2;
             y = x;
-            while (z < y) {
+            while (z < y ) {
+                if(k>=5){
+                    break;
+                }
                 y = z;
                 z = (x / z + z) / 2;
             }
         }
+
+
 
     function cbrt(uint x) public pure returns (uint y) {
             if (x == 0) return 0;
 
             uint z = (x + 1) / 3;
             y = x;
+           // uint32 k=0;
             while (z < y) {
                 y = z;
                 z = (x / (z * z) + 2 * z) / 3;
@@ -644,6 +653,8 @@ contract Redistribution is AccessControl, Pausable {
             if (currentCommits[i].revealed) {
                 revIndex = currentCommits[i].revealIndex;
                 currentSum += currentReveals[revIndex].stakeDensity;
+
+              //  currentWinnerSelectionSum += currentReveals[revIndex].stakeDensity * (currentRevealToStake[currentReveals[revIndex].hash]) * alpha;
                 randomNumber = keccak256(abi.encodePacked(truthSelectionAnchor, k));
 
                 randomNumberTrunc = uint256(randomNumber & MaxH);
@@ -670,6 +681,7 @@ contract Redistribution is AccessControl, Pausable {
         //need stake belonging to reveal
         string memory winnerSelectionAnchor = currentWinnerSelectionAnchor();
 
+        // uint prevRevIndex = 0;
         for (uint256 i = 0; i < commitsArrayLength; i++) {
             revIndex = currentCommits[i].revealIndex;
             if (currentCommits[i].revealed) {
@@ -677,6 +689,9 @@ contract Redistribution is AccessControl, Pausable {
                 //     truthRevealedHash == currentReveals[revIndex].hash &&
                 //     truthRevealedDepth == currentReveals[revIndex].depth
                 // ) {
+                    // if(k-1 > 0){
+                    //     currentWinnerSelectionSum -= currentReveals[prevRevIndex].stakeDensity * (currentRevealToStake[currentReveals[prevRevIndex].hash]) * alpha ;
+                    // }
                     currentWinnerSelectionSum += currentReveals[revIndex].stakeDensity;
                     randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
 
@@ -684,13 +699,16 @@ contract Redistribution is AccessControl, Pausable {
 
                         //do initially with alpha ==1
                     if (
-                        randomNumberTrunc * currentSum * sqrt(currentSum) * alpha <
-                        currentReveals[revIndex].stakeDensity * sqrt(currentRevealToStake[currentReveals[revIndex].hash]) * alpha * (uint256(MaxH) + 1)
+                        randomNumberTrunc * currentWinnerSelectionSum * currentWinnerSelectionSum*alpha <  
+                        currentReveals[revIndex].stakeDensity *currentReveals[revIndex].stakeDensity*alpha* (uint256(MaxH) + 1)
                     ) {
                         winner = currentReveals[revIndex];
-                     } 
+                        //breaking here might mess with some properties
+                       // break;
+                     }
                    
                     k++;
+                    // prevRevIndex = revIndex;
                 // } else {
                 //     Stakes.freezeDeposit(
                 //         currentReveals[revIndex].overlay,
