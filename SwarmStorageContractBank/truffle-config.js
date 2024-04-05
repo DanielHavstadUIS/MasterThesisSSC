@@ -82,12 +82,12 @@ module.exports = {
     //
     simulation: {
       host: "127.0.0.1", // Update with your host address
-      port: 8545,         // Update with a different port number
+      port: 7545,         // Update with a different port number
       network_id: "*",    // Update with your desired network id
-      gas: 8000000000000000,       // Increase gas limit as needed
-      gasPrice: 200000000000, // Set gas price if necessary
+      gas: 9999999999999,       // Increase gas limit as needed
+     // gasPrice: 100, // Set gas price if necessary
       accounts: 20,       // Number of accounts for simulation
-      blockTime: 3        // Block time in seconds (simulate slower blocks)
+     // blockTime: 10        // Block time in seconds (simulate slower blocks)
     }
     //
     // Useful for deploying to a public network.
@@ -110,21 +110,21 @@ module.exports = {
 
   // Set default mocha options here, use special reporters, etc.
   mocha: {
-    timeout: 1000000000000
+    timeout: 9000000000000000
   },
 
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.21",      // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.8.19",      // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
-      // settings: {          // See the solidity docs for advice about optimization and evmVersion
-      //  optimizer: {
-      //    enabled: false,
-      //    runs: 200
-      //  },
+      settings: {          // See the solidity docs for advice about optimization and evmVersion
+       optimizer: {
+         enabled: true,
+         runs: 200
+       },
       //  evmVersion: "byzantium"
-      // }
+      }
     }
   },
 

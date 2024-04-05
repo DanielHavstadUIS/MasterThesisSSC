@@ -419,6 +419,15 @@ contract PostageStamp is AccessControl, Pausable {
     }
 
     /**
+     * @notice View for the current pot.for my simulation
+     */
+    function viewTotalPot() public view returns (uint256) {
+        uint256 balance = ERC20(bzzToken).balanceOf(address(this));
+        return pot < balance ? pot : balance;
+    }
+
+
+    /**
      * @notice Withdraw the pot, authorised callers only.
      * @param beneficiary Recieves the current total pot.
      */

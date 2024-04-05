@@ -33,6 +33,7 @@ async function fetchDataFromSwarmscan(n) {
             rounds = rounds.concat(data.rounds);
             //console.log(rounds);
             console.log(rounds.length);
+            
             next = data.next;
             k = rounds.length;
         }

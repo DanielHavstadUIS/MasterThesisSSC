@@ -375,7 +375,7 @@ contract("Redistribution", (accounts) => {
              });
             console.log(bobStaked);
 
-            n = 1000;
+            n = 10;
             //keep track of winners
             winners = new Map()
             winners.set(overlayAddress1,0)

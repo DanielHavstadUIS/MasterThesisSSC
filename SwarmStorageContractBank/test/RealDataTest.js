@@ -37,6 +37,7 @@ const csvWriter = createCsvWriter({
         { id: 'stake', title: 'Stake' },
         { id: 'stakeDensity', title: 'Stake Density' },
         { id: 'hash', title: 'Hash' },
+        { id: 'pot', title: 'pot' },
         { id: 'reward', title: 'Reward' },
         { id: 'majorityReveal', title: 'MajorityReveal' },
         { id: 'reserveCommitments', title: 'ReserveCommitments' }
@@ -249,17 +250,18 @@ contract("Redistribution", (accounts) => {
             // });
 
 
-            RoundNumbers = await DBProvider.filterRoundsWithMinorityReveals();
+            //RoundNumbers = await DBProvider.filterRoundsWithMinorityReveals();
+            RoundNumbers = await DBProvider.getChaoticRounds();
             console.log(RoundNumbers);
 
-            RoundNumbers = RoundNumbers.slice(0,100);
+            RoundNumbers = RoundNumbers.slice(300);
             console.log(RoundNumbers);
 
-            let majorityReserveCommitment= '';
-            let reserveCommitmentsCount = {};
-
+           
             for (let roundnr of RoundNumbers) {   
 
+                let majorityReserveCommitment= '';
+                let reserveCommitmentsCount = {};
 
                 let round = await new Promise((resolve, reject) => {
                     DBProvider.getRoundData(roundnr, (err, res) => {
@@ -292,7 +294,9 @@ contract("Redistribution", (accounts) => {
                         }
                     });
                 });
-
+                if (reveals.length > 40){
+                    continue;
+                }
                
                 // let commits = await new Promise((resolve, reject) => {
                 //     DBProvider.getCommitsByRoundNumber(rndnr, (err, res) => {
@@ -307,6 +311,7 @@ contract("Redistribution", (accounts) => {
                 // });
 
                 //prep
+                //somehow this doesnt get properly reset which results in faulty majority commits
                 let commithashes = new Map;
                 for (let rvl of reveals) {                    
                    
@@ -408,7 +413,6 @@ contract("Redistribution", (accounts) => {
                         break;
                     }     
                 }
-
                 await time.makeItClaimPhase();
                // console.log(BigNumber.from(round.rewardPot.toString()));
                 await  bzzTokenInstance.approve( postageContract.address, BigNumber.from(round.rewardPot.toString()) ,{from: sudo})
@@ -447,6 +451,7 @@ contract("Redistribution", (accounts) => {
                     stake: e.returnValues.winner.stake,
                     stakeDensity: e.returnValues.winner.stakeDensity,
                     hash: e.returnValues.winner.hash,
+                    pot: round.rewardPot,
                     reward: potAmount,
                     majorityReveal: majorityReserveCommitment,
                     reserveCommitments: reserveCommitmentsCount

@@ -233,5 +233,37 @@ contract StakeRegistry is AccessControl, Pausable {
         require(hasRole(PAUSER_ROLE, msg.sender), "only pauser can unpause");
         _unpause();
     }
+//function added to allow me to set an overlay with stake, rather than mine for it.
+    function depositStakeForSimulation(
+        address _owner,
+        bytes32 overlay,
+        uint256 amount
+    ) external whenNotPaused {
+        require(_owner == msg.sender, "only owner can update stake");
+
+        uint256 updatedAmount = amount;
+
+        if (stakes[overlay].isValue) {
+            require(overlayNotFrozen(overlay), "overlay currently frozen");
+            updatedAmount = amount + stakes[overlay].stakeAmount;
+        }
+
+        require(ERC20(bzzToken).transferFrom(msg.sender, address(this), amount), "failed transfer");
+
+        emit StakeUpdated(overlay, updatedAmount, _owner, block.number);
+
+        stakes[overlay] = Stake({
+            owner: _owner,
+            overlay: overlay,
+            stakeAmount: updatedAmount,
+            lastUpdatedBlockNumber: block.number,
+            isValue: true
+        });
+    }
+
+
+
+
+
 }
 

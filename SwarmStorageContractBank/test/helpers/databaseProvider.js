@@ -169,6 +169,41 @@ function getAllRoundsWithMinorityReveals(callback) {
     });
 }
 
+function getAllRoundsWithMinorityRevealsAlt(callback) {
+    // Query originalFrozens to get all roundNumbers
+    let db = new sqlite3.Database(dbPath);
+
+    const query = `
+        SELECT roundNumber 
+        FROM (
+            SELECT DISTINCT roundNumber FROM originalFrozens
+        ) AS of_rounds
+        WHERE roundNumber IN (
+            SELECT roundNumber 
+            FROM reveals 
+            WHERE roundNumber >= 180291
+            GROUP BY roundNumber 
+            HAVING COUNT(DISTINCT reserveCommitment) > 1
+        )
+        ORDER BY roundNumber
+    `;
+
+    // Execute the query
+    db.all(query, (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            callback(err, null);
+            return;
+        }
+
+        // Extract roundNumbers from the result rows
+        const roundNumbers = rows.map(row => row.roundNumber);
+
+        callback(null, roundNumbers);
+    });
+}
+
+
 //this is 7580 rounds
 //removing rounds where majority reveal must be at least half of all revealse it is 6995 rounds
 async function filterRoundsWithMinorityReveals() {
@@ -236,6 +271,90 @@ async function filterRoundsWithMinorityReveals() {
                 const majorityVotes = roundInfo.reserveCommitments[roundInfo.majorityReserveCommitment];
                 const totalVotes = roundInfo.totalReveals;
                 if (!(majorityVotes >= totalVotes / 2)) {
+                    filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
+                }
+                if (roundData.revealAnchor ==null){
+                    filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
+                }
+
+              // console.log(`Round Number: ${roundNumber}`);
+              //  console.log(`Total Reveals: ${revealsData.length}`);
+               // console.log(`Reveals:`);
+               // console.log(roundInfo.reserveCommitments)
+               // console.log(`Majority Reveal: ${roundInfo.majorityReserveCommitment}`);
+            }
+    console.log(filteredRndNumbers.length);
+    return filteredRndNumbers;
+    } catch (error) {
+        console.error('Error fetching round numbers:', error);
+    }
+}
+
+async function getChaoticRounds() {
+    let filteredRndNumbers = []
+    try {
+            const roundNumbers = await new Promise((resolve,reject)=> { getAllRoundsWithMinorityReveals((err,data)=>{
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(data);
+                    }
+
+                });
+            });
+            filteredRndNumbers = [...roundNumbers];
+            console.log(roundNumbers.length);
+            for (const roundNumber of roundNumbers) {
+
+                const roundData = await new Promise((resolve, reject) => {
+                    getRoundData(roundNumber, (err, data) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(data);
+                        }
+                    });
+                });
+
+                const revealsData = await new Promise((resolve, reject) => {
+                    getRevealsByRoundNumber(roundNumber, (err, data) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(data);
+                        }
+                    });
+                });
+
+                const roundInfo = {
+                    roundNumber: roundNumber,
+                    totalReveals: revealsData.length,
+                    majorityReserveCommitment: '',
+                    reserveCommitments: {}
+                };
+                const reserveCommitmentsCount = {};
+
+                for (const reveal of revealsData){
+                    
+                    const reserveCommitment = reveal.reserveCommitment;
+                    //console.log(reserveCommitment);
+                    // Count occurrences of reserveCommitment
+                    reserveCommitmentsCount[reserveCommitment] = (reserveCommitmentsCount[reserveCommitment] || 0) + 1;
+
+                    // Update majorityReserveCommitment if needed
+                    if (
+                        !roundInfo.majorityReserveCommitment ||
+                        reserveCommitmentsCount[reserveCommitment] > reserveCommitmentsCount[roundInfo.majorityReserveCommitment]
+                    ) {
+                        roundInfo.majorityReserveCommitment = reserveCommitment;
+                    }
+                }
+                roundInfo.reserveCommitments = reserveCommitmentsCount;
+                
+                // Check if majority reserve commitment has at least half the votes
+                const majorityVotes = roundInfo.reserveCommitments[roundInfo.majorityReserveCommitment];
+                const totalVotes = roundInfo.totalReveals;
+                if ((majorityVotes >= totalVotes / 2)) {
                     filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
                 }
                 if (roundData.revealAnchor ==null){
@@ -504,11 +623,27 @@ async function findMostSuitableRoundHistory(k) {
 //deleteObsoleteRounds();
 // Call the function to count overlays
 //countNumberOfRevealsByOverlay();
+//getChaoticRounds();
+
+
+getAllRoundsWithMinorityRevealsAlt((err, roundNumbers) => {
+    if (err) {
+        console.error("Error:", err);
+        return;
+    }
+
+    console.log("Round numbers with more than one unique reserveCommitment:");
+    console.log(roundNumbers.length)
+    // roundNumbers.forEach(roundNumber => {
+    //     console.log(roundNumber);
+    // });
+});
 
 module.exports = {
     getAllRounds,
     getAllRoundsWithMinorityReveals,
     filterRoundsWithMinorityReveals,
+    getChaoticRounds,
     getRoundData,
     getAllReveals,
     getRevealsByRoundNumber,

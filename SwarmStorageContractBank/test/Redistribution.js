@@ -341,7 +341,7 @@ contract("Redistribution", (accounts) => {
 
     //context allows grouping tests for a specific scenario, 
     //prepending an x before context as in xcontext or xit for a single tests omits testing these tests
-    xcontext("Bankwintesting", async () => {
+    context("Bankwintesting", async () => {
         xit("Bank should at some point win ",async () =>{ 
             ClaimGasHistory = [];
             console.log("Starting win testing")
@@ -400,7 +400,7 @@ contract("Redistribution", (accounts) => {
              });
             console.log(bobStaked);
 
-            n = 100;
+            n = 1000;
             //keep track of winners
             winners = new Map()
             winners.set(overlayAddress1,0)
@@ -465,7 +465,7 @@ contract("Redistribution", (accounts) => {
 
           })
     })
-    context("potAddedToNewRound", async () => {
+    xcontext("potAddedToNewRound", async () => {
         it("pot should remain from prev round",async () =>{ 
             console.log("Starting win testing")
            

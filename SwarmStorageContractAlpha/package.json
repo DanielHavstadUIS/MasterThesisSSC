@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "@openzeppelin/test-helpers": "^0.5.16",
+    "csv-writer": "^1.6.0",
     "ganache": "^7.9.2",
+    "sqlite3": "^5.1.7",
     "truffle": "^5.11.5",
     "truffle-hdwallet-provider": "^1.0.17"
   }

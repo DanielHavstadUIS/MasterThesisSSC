@@ -74,7 +74,10 @@ contract Redistribution2 is AccessControl, Pausable {
     uint256 public penaltyMultiplierNonRevealed = 2;
 
     // Maximum value of the keccack256 hash.
-    bytes32 MaxH = bytes32(0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff);
+    //bytes32 MaxH = bytes32(0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff);
+    //edit to avoid arithmetic overflow
+    bytes32 MaxH = bytes32(0x000000000000000000000000000000000000000000ffffffffffffffffffffff);
+
 
     // The current anchor that being processed for the reveal and claim phases of the round.
     bytes32 currentRevealRoundAnchor;
@@ -392,7 +395,9 @@ contract Redistribution2 is AccessControl, Pausable {
 
         require(cr == currentCommitRound, "round received no commits");
         if (cr != currentRevealRound) {
-            currentRevealRoundAnchor = currentRoundAnchor();
+            //currentRevealRoundAnchor = currentRoundAnchor();
+            //edit
+            currentRevealRoundAnchor = currentRoundAnchorValue;
             delete currentReveals;
              _resetRevealToStake();
             currentRevealRound = cr;
@@ -464,32 +469,35 @@ contract Redistribution2 is AccessControl, Pausable {
             uint z = (x + 1) / 2;
             y = x;
             while (z < y ) {
-                // if(k>=26){
+                // if(k>=40){
                 //     break;
                 // }
                 // k++;
                 y = z;
                 z = (x / z + z) / 2;
             }
+            return y;
         }
 
 
 
     function cbrt(uint x) public pure returns (uint y) {
             if (x == 0) return 0;
-            // uint8 k = 0;
+            uint8 k = 0;
 
             uint z = (x + 1) / 3;
             y = x;
            // uint32 k=0;
             while (z < y) {
-                // if(k>=5){
-                //     break;
-                // }
-                // k++;
+                if(k>=100){
+                    break;
+                }
+                k++;
                 y = z;
                 z = (x / (z * z) + 2 * z) / 3;
             }
+            return y;
+
         }
 
 
@@ -623,6 +631,19 @@ contract Redistribution2 is AccessControl, Pausable {
         }
     }
 
+ //edited by me for testing
+    bytes32 public currentRoundAnchorValue;
+
+    function setCurrentRoundAnchor(bytes32 _value) external {
+        currentRoundAnchorValue = _value;
+    }
+
+    string public currentTruthSelectionAnchorValue;
+
+    function setCurrentTruthSelectionAnchor(string memory _value) external {
+        currentTruthSelectionAnchorValue = _value;
+    }
+
     /**
      * @notice Conclude the current round by identifying the selected truth teller and beneficiary.
      * @dev
@@ -635,7 +656,9 @@ contract Redistribution2 is AccessControl, Pausable {
         require(cr == currentRevealRound, "round received no reveals");
         require(cr > currentClaimRound, "round already received successful claim");
         delete winner;
-        string memory truthSelectionAnchor = currentTruthSelectionAnchor();
+       //string memory truthSelectionAnchor = currentTruthSelectionAnchor();
+        //edit
+        string memory truthSelectionAnchor = currentTruthSelectionAnchorValue;
 
         uint256 currentSum;
         //uint256 currentWinnerSelectionSum;
@@ -688,8 +711,8 @@ contract Redistribution2 is AccessControl, Pausable {
 
         randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
         
-        uint currentWheelSliceStart = 0;
-        uint currentWheelSliceEnd = 0;
+        uint256 currentWheelSliceStart = 0;
+        uint256 currentWheelSliceEnd = 0;
 
         for (uint256 i = 0; i < commitsArrayLength; i++) {
             revIndex = currentCommits[i].revealIndex;
@@ -702,8 +725,14 @@ contract Redistribution2 is AccessControl, Pausable {
                     //randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
 
                     randomNumberTrunc = uint256(randomNumber & MaxH);
-                    currentWheelSliceEnd =  currentWheelSliceStart + (currentReveals[revIndex].stakeDensity*(currentRevealToStake[currentReveals[revIndex].hash])*alpha * (uint256(MaxH) + 1));
-                    uint randCalc = randomNumberTrunc*currentSum *(currentSum) * alpha;
+                    
+                    //need stop these from creating integer overflow
+
+                    currentWheelSliceEnd =  currentWheelSliceStart + (currentReveals[revIndex].stakeDensity*sqrt(currentRevealToStake[currentReveals[revIndex].hash])*alpha * (uint256(MaxH) + 1));
+                  
+                    uint256 randCalc = randomNumberTrunc*currentSum *sqrt(currentSum) * alpha;
+                   
+
                         //do initially with alpha ==1
                     if (
                         (currentWheelSliceStart <= randCalc) &&
@@ -775,6 +804,8 @@ contract Redistribution2 is AccessControl, Pausable {
     event RevealToStakeMapUpdated(uint256  indexed stake);
     
     event emitNumber(uint256 indexed number);
+
+    
 
 
 }
