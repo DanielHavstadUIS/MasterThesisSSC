@@ -277,6 +277,12 @@ async function filterRoundsWithMinorityReveals() {
                     filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
                 }
 
+                // console.log(roundInfo.reserveCommitments)
+                // console.log(Object.keys(roundInfo.reserveCommitments).length)
+                
+                if (Object.keys(roundInfo.reserveCommitments).length < 2){
+                    filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
+                }
               // console.log(`Round Number: ${roundNumber}`);
               //  console.log(`Total Reveals: ${revealsData.length}`);
                // console.log(`Reveals:`);
@@ -626,18 +632,20 @@ async function findMostSuitableRoundHistory(k) {
 //getChaoticRounds();
 
 
-getAllRoundsWithMinorityRevealsAlt((err, roundNumbers) => {
-    if (err) {
-        console.error("Error:", err);
-        return;
-    }
+// getAllRoundsWithMinorityRevealsAlt((err, roundNumbers) => {
+//     if (err) {
+//         console.error("Error:", err);
+//         return;
+//     }
 
-    console.log("Round numbers with more than one unique reserveCommitment:");
-    console.log(roundNumbers.length)
-    // roundNumbers.forEach(roundNumber => {
-    //     console.log(roundNumber);
-    // });
-});
+//     console.log("Round numbers with more than one unique reserveCommitment:");
+//     console.log(roundNumbers.length)
+//     // roundNumbers.forEach(roundNumber => {
+//     //     console.log(roundNumber);
+//     // });
+// });
+
+//console.log(filterRoundsWithMinorityReveals().length);
 
 module.exports = {
     getAllRounds,

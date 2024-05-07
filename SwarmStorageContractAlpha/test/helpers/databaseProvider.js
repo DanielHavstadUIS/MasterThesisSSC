@@ -241,7 +241,10 @@ async function filterRoundsWithMinorityReveals() {
                 if (roundData.revealAnchor ==null){
                     filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
                 }
-
+                  
+                if (Object.keys(roundInfo.reserveCommitments).length < 2){
+                    filteredRndNumbers = filteredRndNumbers.filter(num => num !== roundNumber);
+                }
               // console.log(`Round Number: ${roundNumber}`);
               //  console.log(`Total Reveals: ${revealsData.length}`);
                // console.log(`Reveals:`);

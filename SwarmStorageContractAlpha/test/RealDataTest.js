@@ -250,11 +250,11 @@ contract("Redistribution", (accounts) => {
             // });
 
 
-             //RoundNumbers = await DBProvider.filterRoundsWithMinorityReveals();
-             RoundNumbers = await DBProvider.getChaoticRounds();
+            RoundNumbers = await DBProvider.filterRoundsWithMinorityReveals();
+            //RoundNumbers = await DBProvider.getChaoticRounds();
             console.log(RoundNumbers);
 
-           //RoundNumbers = RoundNumbers.slice(5000);
+          RoundNumbers = RoundNumbers.slice(4500);
            console.log(RoundNumbers);
 
           
