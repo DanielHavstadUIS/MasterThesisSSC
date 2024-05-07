@@ -549,6 +549,12 @@ contract Redistribution2 is AccessControl, Pausable {
         k = 0;
 
         string memory winnerSelectionAnchor = currentWinnerSelectionAnchor();
+        
+        randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
+
+        uint256 currentWheelSliceStart = 0;
+        uint256 currentWheelSliceEnd = 0;
+
 
         for (uint256 i = 0; i < commitsArrayLength; i++) {
             revIndex = currentCommits[i].revealIndex;
@@ -557,18 +563,26 @@ contract Redistribution2 is AccessControl, Pausable {
                 truthRevealedHash == currentReveals[revIndex].hash &&
                 truthRevealedDepth == currentReveals[revIndex].depth
             ) {
-                currentWinnerSelectionSum += currentReveals[revIndex].stakeDensity;
-                randomNumber = keccak256(abi.encodePacked(winnerSelectionAnchor, k));
+                currentWheelSliceEnd =  currentWheelSliceStart + (currentReveals[revIndex].stakeDensity*sqrt(currentRevealToStake[currentReveals[revIndex].hash])*alpha * (uint256(MaxH) + 1));
+
+                uint256 randCalc = uint256(randomNumber & MaxH)*currentSum *sqrt(currentSum) * alpha;
+                
 
                 if (
-                    uint256(randomNumber & MaxH) * currentWinnerSelectionSum <
-                    currentReveals[revIndex].stakeDensity * (uint256(MaxH) + 1)
-                ) {
-                    winnerIs = currentReveals[revIndex].overlay;
-                }
-
-                k++;
+                        (currentWheelSliceStart <= randCalc) &&
+                        randCalc <
+                            currentWheelSliceEnd
+                    ) {
+                        winnerIs = currentReveals[revIndex].overlay;
+                        break;
+                     } 
+                    currentWheelSliceStart = currentWheelSliceEnd;
+                    k++;
             }
+        }
+
+        if (winnerIs == bytes32(0)){
+            winnerIs = keccak256("BANK");
         }
 
         return (winnerIs == _overlay);
